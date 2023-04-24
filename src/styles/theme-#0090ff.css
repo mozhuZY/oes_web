@@ -1,0 +1,46 @@
+.color {
+    color: #0090ff;
+}
+
+.component-font-color {
+    color: white;
+}
+
+.background {
+    background-color: #0090ff;
+}
+
+.card-background {
+    background-color: #a5d6fd;
+}
+
+@keyframes page-transition-enter {
+    from {
+        transform: translateY(100%);
+        opacity: 0.0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1.0;
+    }
+}
+
+@keyframes page-transition-leave {
+    from {
+        transform: translateY(0);
+        opacity: 1.0;
+    }
+    to {
+        transform: translateY(-100%);
+        opacity: 0.0;
+    }
+}
+
+.container {
+    margin: 0;
+    padding: 0;
+}
+
+.loading-container {
+    text-align: center;
+}
