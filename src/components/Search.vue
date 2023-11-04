@@ -2,7 +2,7 @@
   <div class="container">
     <el-input class="input"
               v-model="keyWord"
-              placeholder="输入考试名称或考试号查询考试信息"
+              placeholder="输入考试名称查询考试信息"
               prefix-icon="Search" clearable autofocus @keyup.enter="search">
     </el-input>
   </div>
@@ -12,6 +12,7 @@
 import {ref} from "vue";
 
 export default {
+  // eslint-disable-next-line vue/multi-word-component-names
   name: "Search",
   emits: ["doSearch"],
   setup(props, context) {

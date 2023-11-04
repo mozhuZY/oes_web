@@ -5,6 +5,7 @@
  * @param isChangeLength 是否需要向目标数组添加新元素
  * @return [*] 目标数组
  */
+
 function copyElements(target, origin, isChangeLength = true) {
     // 传入参数不为数组类型 -> 结束函数
     if (!(target instanceof Array) || !(origin instanceof Array)) {
@@ -45,7 +46,7 @@ function copyProperties(target, origin, isNeedNewProperties = true) {
             // 处理类型为对象的属性
             if (origin[key] instanceof Object) {
                 target[key] = {}
-                copyElements(target[key], origin[key])
+                copyProperties(target[key], origin[key], isNeedNewProperties)
             }
             // 基本数据类型
             target[key] = origin[key]

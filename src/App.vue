@@ -31,7 +31,7 @@ export default {
             localStorage.removeItem("user-token")
           } else {
             // token存在且后端为登录状态，则加载存储的用户信息
-            store.commit("user/loginStore", JSON.parse(localStorage.getItem(token)))
+            store.commit("user/loginStore", res.data.data)
           }
         })
       }

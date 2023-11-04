@@ -16,7 +16,7 @@ export default {
             permissions: [
                 {id: "001", permission: "登录"}
             ],
-            picture: "default.png"
+            picture: "default_user.png"
         }),
 
         baseMenus: [

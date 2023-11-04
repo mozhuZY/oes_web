@@ -4,10 +4,13 @@
   </div>
   <!-- 试卷分页信息 -->
   <div>
+    <div v-if="paperList.data.list.length === 0">
+      <h4 style="text-align: center; color: lightgray">无试卷数据</h4>
+    </div>
     <div class="paper-list">
-      <PaperItem v-for="paper in paperList" :key="paper.id" :paper="paper" :modify-paper="modifyPaper" :delete-paper="deletePaper" @click="toPaper(index)">
+      <PaperItem v-for="(paper, index) in paperList.data.list" :key="paper.id" :index="index" :paper="paper" :modify-paper="openModifyPaper" :delete-paper="deletePaper" @click="toPaper(index)">
         <template #subTitle>
-          <span style="font-size: 20px; color: black;">试卷总分：{{ paper.score }}分</span>
+          <span style="font-size: 20px; color: black;">试卷总分：{{ paper.totalScore }}分</span>
         </template>
       </PaperItem>
     </div>
@@ -20,7 +23,7 @@
         :page-sizes="pageSizeList"
         :background="true"
         layout="sizes, prev, pager, next"
-        :total="paperList.length"
+        :total="paperList.data.total"
         @size-change="handleSizeChange"
         @current-change="handleCurrentChange"
     />
@@ -35,6 +38,9 @@
     <el-form>
       <el-form-item label="试卷ID" label-width="140">
         <el-input v-model="data.modifyObject.id" disabled></el-input>
+      </el-form-item>
+      <el-form-item label="标题" label-width="140">
+        <el-input v-model="data.modifyObject.title"></el-input>
       </el-form-item>
       <el-form-item label="学科" label-width="140">
         <el-input v-model="data.modifyObject.subject"></el-input>
@@ -68,9 +74,10 @@
 </template>
 
 <script>
-import {inject, reactive} from "vue";
+import {inject, onMounted, reactive} from "vue";
 import PaperItem from "@/components/PaperItem";
 import {ElMessageBox, ElMessage} from "element-plus";
+import {addPaper, getCurrentUserPaperPage, modifyPaper, removePaper} from "@/config/request/paperRequests";
 
 export default {
   name: "MyPaper",
@@ -85,7 +92,7 @@ export default {
       isCreate: false,
       modifyObject: {
         id: null,
-        title: "",
+        title: null,
         score: null,
         qNum: null,
         subject: ""
@@ -93,32 +100,15 @@ export default {
       newObject: {
         title: "",
         subject: "",
+        totalScore: 0
       }
     })
 
-    const paperList = reactive([
-      {
-        id: 1,
-        title: "英语四级英语四级试卷",
-        score: 120,
-        qNum: 5,
-        subject: "英语"
-      },
-      {
-        id: 2,
-        title: "英语四级英语四级试卷",
-        score: 150,
-        qNum: 11,
-        subject: "英语"
-      },
-      {
-        id: 3,
-        title: "英语四级英语四级试卷",
-        score: 100,
-        qNum: 10,
-        subject: "英语"
+    const paperList = reactive({
+      data: {
+        list: []
       }
-    ])
+    })
 
     // 分页信息
     const pageInfo = reactive({
@@ -128,21 +118,34 @@ export default {
 
     const pageSizeList = reactive([10, 20, 30, 50])
 
-    // 转到试卷编辑页面
+    // 加载试卷信息
+    function getListData() {
+      getCurrentUserPaperPage(pageInfo).then((res) => {
+        if (res.data.code === 200) {
+          paperList.data = res.data.data
+        } else {
+          ElMessage.error("试卷信息加载失败，请重试")
+        }
+      })
+    }
 
+    // 转到试卷编辑页面
     function toPaper(index) {
-      console.log("转到试卷详细信息：" + paperList[index])
-      mainRouteJump("paperEdit")
+      if (!paperList.data.list[index].editable) {
+        ElMessage.error("有包含此试卷的考试正在进行考试，不可编辑")
+      } else {
+        mainRouteJump("paperEdit", {paperId: paperList.data.list[index].id})
+      }
     }
 
     // 处理分页大小变化
-    function handleSizeChange(size) {
-      console.log(size)
+    function handleSizeChange() {
+      getListData()
     }
 
     // 处理切换分页
-    function handleCurrentChange(page) {
-      console.log(page)
+    function handleCurrentChange() {
+      getListData()
     }
 
     // 新建试卷
@@ -150,30 +153,44 @@ export default {
       data.newObject = {
         title: "",
         subject: "",
+        totalScore: 0
       }
       data.isCreate = true
     }
 
     // 确认创建
     function confirmCreate() {
-
-      data.isCreate = false
-      ElMessage.success("创建成功")
+      addPaper(data.newObject).then((res) => {
+        if (res.data.code === 200) {
+          data.isCreate = false
+          ElMessage.success("创建成功")
+          // 重新请求数据
+          getListData()
+        } else {
+          ElMessage.error("创建失败，请重试")
+        }
+      })
     }
 
     // 修改试卷
-    function modifyPaper(paper) {
-      Object.assign(data.modifyObject, paper)
+    function openModifyPaper(index) {
+      data.modifyObject = JSON.parse(JSON.stringify(paperList.data.list[index]))
       data.isModify = true
-      console.log(paper)
     }
 
+    // 确认修改试卷
     function confirmModify() {
       // 修改试卷请求
-
-      data.isModify = false
-      ElMessage.success("修改成功")
-
+      modifyPaper(data.modifyObject).then((res) => {
+        if (res.data.code === 200) {
+          data.isModify = false
+          ElMessage.success("修改成功")
+          // 重新请求数据
+          getListData()
+        } else {
+          ElMessage.error("修改失败，请重试")
+        }
+      })
     }
 
     // 删除试卷
@@ -181,14 +198,30 @@ export default {
       ElMessageBox.alert("确定要删除此试卷吗？", "提示", {
         confirmButtonText: "确定",
         confirmButtonClass: "color: red",
+        cancelButtonText: "取消",
         callback: (msg) => {
           if (msg === "confirm") {
             // 删除试卷请求
-            ElMessage.success("删除成功")
+            let dt = {
+              ids: [paperId]
+            }
+            removePaper(dt).then((res) => {
+              if (res.data.code === 200) {
+                ElMessage.success("删除成功")
+                // 重新请求数据
+                getListData()
+              } else {
+                ElMessage.error("删除失败，请重试")
+              }
+            })
           }
         }
       })
     }
+
+    onMounted(() => {
+      getListData()
+    })
 
     return {
       paperList,
@@ -199,7 +232,7 @@ export default {
       toPaper,
       handleSizeChange,
       handleCurrentChange,
-      modifyPaper,
+      openModifyPaper,
       confirmModify,
       deletePaper,
       createPaper,

@@ -3,7 +3,8 @@
     <div class="head" :style="`background: url(http://localhost:8080/picture/user/${picture});`">
       <div class="bg">
         <div class="head-icon">
-          <el-avatar class="icon" :src="'http://localhost:8080/picture/user/' + picture" :size="150"></el-avatar>
+          <el-avatar class="icon" :src="'http://localhost:8080/picture/user/' + picture" :size="150"
+                     @click="isChangePicture = true"></el-avatar>
         </div>
 
         <!-- 用户姓名 -->
@@ -41,6 +42,19 @@
           <el-radio :label="0">女</el-radio>
         </el-radio-group>
       </el-col>
+
+      <!-- 所属组织 -->
+      <template v-if="role === 2">
+        <el-col class="editable-info" :span="12">
+          <el-text size="large" type="primary">所属组织</el-text>
+        </el-col>
+        <el-col class="editable-info-value" :span="12" v-if="!isEditable">
+          <el-text size="large" type="primary">{{ org }}</el-text>
+        </el-col>
+        <el-col class="editable-info-value" :span="12" v-if="isEditable">
+          <el-input style="width: 200px" size="large" v-model="org"/>
+        </el-col>
+      </template>
     </el-row>
     <div class="functional">
       <el-button class="func-btn" type="primary" plain v-if="!isEditable" @click="isEditable = true">编辑</el-button>
@@ -48,6 +62,35 @@
       <el-button class="func-btn" type="primary" plain v-if="isEditable" @click="cancel">取消</el-button>
     </div>
   </div>
+
+  <!-- 修改头像对话框 -->
+  <el-dialog
+      title="修改头像"
+      width="40%"
+      v-model="isChangePicture"
+  >
+    <el-upload
+        class="upload-image"
+        ref="upload"
+        action="http://localhost:8080/api/file/picture/user/upload"
+        v-model:file-list="fileList"
+        :headers="headers"
+        :limit="1"
+        :on-success="handleSuccess"
+        :before-upload="handleBeforeUpload"
+        :auto-upload="false"
+    >
+      <template #trigger>
+        <el-button type="primary">选择文件</el-button>
+      </template>
+    </el-upload>
+
+    <!-- 对话框按钮 -->
+    <template #footer>
+      <el-button type="primary" @click="modifyPicture">确认</el-button>
+      <el-button type="primary" plain @click="isChangePicture = false">取消</el-button>
+    </template>
+  </el-dialog>
 </template>
 
 <script>
@@ -63,8 +106,14 @@ export default {
     const store = inject("store")
     const user = toRaw(store.state.user.currentUser)
     const copy = useClipboard()
+    const upload = ref(null)
+    const fileList = ref([])
 
     const isEditable = ref(false)
+    const isChangePicture = ref(false)
+    const headers = reactive({
+      "user-token": localStorage.getItem("user-token")
+    })
     let editableUser = reactive({...user})
 
     // 复制ID到剪切板
@@ -89,7 +138,8 @@ export default {
         id: editableUser.id,
         realName: editableUser.realName,
         age: editableUser.age,
-        gender: editableUser.gender
+        gender: editableUser.gender,
+        org: editableUser.org
       }
       modifyUserInfo(reqData).then(res => {
         if (res.data.code === 200) {
@@ -107,6 +157,38 @@ export default {
       })
     }
 
+    // 修改用户头像
+    function modifyPicture() {
+      if (fileList.value.length > 0) {
+        upload.value.submit()
+      } else {
+        ElMessage.error("请选择图片再上传")
+      }
+    }
+
+    // 上传成功回调函数
+    function handleSuccess(response) {
+      if (response.data.code === 200) {
+        ElMessage.success("头像上传成功，等待管理员审核")
+        isChangePicture.value = false
+      } else {
+        ElMessage.error("头像上传失败，请重试")
+      }
+    }
+
+    // 图片上传前回调函数（检查图片类型）
+    function handleBeforeUpload(rawFile) {
+      console.log(rawFile)
+      if (rawFile.type !== 'image/jpeg' && rawFile.type !== 'image/png') {
+        ElMessage.error('图片格式只能为.jpg .jpeg .png')
+        return false
+      } else if (rawFile.size / 1024 / 1024 > 20) {
+        ElMessage.error('图片大小不能超过20MB')
+        return false
+      }
+      return true
+    }
+
     // 取消修改
     function cancel() {
       copyProperties(editableUser, user)
@@ -116,10 +198,17 @@ export default {
     return {
       ...toRefs(editableUser),
       isEditable,
+      isChangePicture,
+      headers,
+      upload,
+      fileList,
 
       copyIdToClip,
       save,
-      cancel
+      handleSuccess,
+      handleBeforeUpload,
+      cancel,
+      modifyPicture
     }
   }
 }

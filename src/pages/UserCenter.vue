@@ -10,7 +10,7 @@
       <el-menu
           mode="vertical"
           :default-active="activeMenu"
-          v-for="menu in menuList"
+          v-for="menu in menuList.list"
           :key="menu.id"
           @select="handleSelect"
       >
@@ -43,7 +43,9 @@ export default {
     const router = useRouter()
     const user = store.state.user.currentUser
 
-    let menuList = [...store.getters["user/getTeacherMenus"]]
+    let menuList = reactive({
+      list: []
+    })
     const activeMenu = ref("")
 
     // 切换显示
@@ -53,16 +55,29 @@ export default {
     }
 
     onActivated(() => {
+      // 角色判断
+      if (store.state.user.currentUser.role === 2) {
+        // 教师
+        menuList.list = [...store.getters["user/getTeacherMenus"]]
+      } else {
+        // 学生
+        menuList.list = [...store.getters["user/getStudentMenus"]]
+      }
+
       // 进入此页面立即设置默认打开个人信息
-      activeMenu.value = menuList[0].route
+      activeMenu.value = menuList.list[0].route
 
       // 若从子菜单因打开其他详情页跳转而来，则跳转到指定的子菜单
       let last = router.currentRoute.value.query.last
-      console.log(router.currentRoute.value.query.last)
       if (last !== undefined) {
         console.log("来自"+ last + "页面")
         activeMenu.value = last
         router.replace({name: last + ""})
+      }
+
+      //若是页面重新刷新则设置当前菜单项
+      if (router.currentRoute.value.name !== menuList.list[0].route) {
+        activeMenu.value = router.currentRoute.value.name
       }
     })
 

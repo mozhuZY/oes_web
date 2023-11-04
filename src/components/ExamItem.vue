@@ -10,16 +10,18 @@
     </template>
     <div style="display: flex; justify-content: left; align-items: flex-end">
       <div class="info-container">
-        <span class="info">考试ID：{{ exam.examId }}</span><br>
-        <span class="info" v-if="!data.isTeacher">发布教师：{{ exam.creator }}<br></span>
-        <span class="info" v-if="data.isTeacher">学科：{{ exam.subject }}</span><br>
+        <span class="info">考试ID：{{ exam.id }}</span><br>
+        <span class="info" v-if="!data.isTeacher">发布教师：{{ exam.creatorName }}<br></span>
+        <span class="info">学科：{{ exam.subject }}</span><br>
+        <span class="info">考试时间：{{ exam.startTime }} ~ {{ exam.endTime }}</span><br>
         <div class="tags" v-for="(tag, index) in exam.tags" :key="index">
-          <el-tag type="success">{{ tag }}</el-tag>
+          <el-tag type="success">{{ exam.subject }}</el-tag>
         </div>
       </div>
       <div class="operations">
-        <el-button type="primary" plain size="small" v-if="data.isTeacher" @click.stop="modifyExam">修改</el-button>
-        <el-button type="danger" plain size="small" v-if="data.isTeacher" @click.stop="deleteExam">删除</el-button>
+        <el-button type="primary" plain size="small" v-if="data.isTeacher" :disabled="exam.state === 2" @click.stop="modifyExam">修改</el-button>
+        <el-button type="danger" plain size="small" v-if="data.isTeacher" :disabled="exam.state === 2" @click.stop="deleteExam">删除</el-button>
+        <slot name="score"></slot>
       </div>
     </div>
   </el-card>

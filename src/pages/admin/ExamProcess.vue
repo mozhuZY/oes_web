@@ -1,6 +1,6 @@
 <template>
   <!-- 数据表格 -->
-  <el-table :data="dataList">
+  <el-table :data="dataList.data.list">
     <!-- 考试ID -->
     <el-table-column
         header-align="center"
@@ -41,16 +41,6 @@
         label="学科"
         prop="subject"
         width="150"
-    >
-    </el-table-column>
-
-    <!-- 发布时间 -->
-    <el-table-column
-        header-align="center"
-        align="center"
-        label="发布时间"
-        prop="releaseTime"
-        width="300"
     >
     </el-table-column>
 
@@ -112,7 +102,7 @@
         :page-sizes="pageSizes"
         :default-current-page="1"
         :default-page-size="10"
-        :total="dataList.length"
+        :total="dataList.data.total"
         @current-change="pageChange"
         @size-change="pageSizeChange"
     >
@@ -121,9 +111,11 @@
 </template>
 
 <script>
-import {reactive, ref} from "vue";
+import {onMounted, reactive, ref} from "vue";
 import {ElMessage, ElMessageBox} from "element-plus";
 import {copyProperties} from "@/utils/objectUtil";
+import {getUserInfoPage, modifyUser} from "@/config/request/userRequest";
+import {getExamPage, modifyExam} from "@/config/request/examRequest";
 
 export default {
   name: "ExamProcess",
@@ -132,6 +124,7 @@ export default {
     const pageInfo = reactive({
       pageNum: 1,
       pageSize: 10,
+      states: [0]
     })
 
     // 分页大小
@@ -141,43 +134,68 @@ export default {
     const stateList = reactive(["待审核", "已发布", "正在考试", "已结束"])
 
     // 数据列表
-    const dataList = reactive([
-      {
-        id: 1,
-        examName: "英语四级",
-        category: 0,
-        subject: "英语",
-        releaseTime: "2023-04-12 00:00:00",
-        startTime: "2023-04-12 00:00:00",
-        endTime: "2023-04-16 00:00:00",
-        state: 0,
-      },
-    ])
+    const dataList = reactive({
+      data: {
+        list: []
+      }
+    })
+
+    // 加载数据
+    function loadData() {
+      getExamPage(pageInfo).then((res) => {
+        if(res.data.code === 200) {
+          dataList.data = res.data.data
+        } else {
+          ElMessage.error("考试信息加载失败，请重试")
+        }
+      })
+    }
+
+    // 分页信息变化
+    function pageChange() {
+      loadData()
+    }
+
+    // 分页大小切换
+    function pageSizeChange() {
+      loadData()
+    }
 
     // 审核通过
     function pass(index) {
-
-      ElMessage.success("审核完成")
+      let dt = {
+        id: dataList.data.list[index].id,
+        state: 1,
+      }
+      modifyExam(dt).then((res) => {
+        if (res.data.code === 200) {
+          ElMessage.success("审核成功")
+          loadData()
+        } else {
+          ElMessage.error("审核失败，请重试")
+        }
+      })
     }
 
     // 审核驳回
     function reject(index) {
-
-      ElMessage.success("审核完成")
+      let dt = {
+        id: dataList.data.list[index].id,
+        state: 2,
+      }
+      modifyExam(dt).then((res) => {
+        if (res.data.code === 200) {
+          ElMessage.success("驳回成功")
+          loadData()
+        } else {
+          ElMessage.error("驳回失败，请重试")
+        }
+      })
     }
 
-    // 切换分页
-    function pageChange(page) {
-      console.log("切换到分页：", page)
-      pageInfo.pageNum = page
-    }
-
-    // 分页大小切换
-    function pageSizeChange(size) {
-      pageInfo.pageSize = size
-      // 重新请求服务器
-      console.log("分页大小切换：", size)
-    }
+    onMounted(() => {
+      loadData()
+    })
 
     return {
       dataList,

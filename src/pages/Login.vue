@@ -15,7 +15,7 @@
       </div>
       <div class="login-btn-container">
         <el-button class="login-btn" type="primary" @click="userLogin">登录</el-button>
-        <el-button class="login-btn" type="primary" @click="register">注册</el-button>
+        <el-button class="login-btn" type="primary" @click="openRegister">注册</el-button>
       </div>
     </div>
   </div>
@@ -23,6 +23,12 @@
   <el-dialog title="注册" width="50%" center v-model="data.isRegister"
   >
     <el-form v-model="data.register">
+      <el-form-item label="注册身份" label-width="140">
+        <el-radio-group v-model="data.register.role">
+          <el-radio v-model="data.register.role" :label="3">学生</el-radio>
+          <el-radio v-model="data.register.role" :label="2">教师</el-radio>
+        </el-radio-group>
+      </el-form-item>
       <el-form-item label="用户名" label-width="140">
         <el-input v-model="data.register.username" placeholder="用户名"></el-input>
       </el-form-item>
@@ -35,13 +41,16 @@
       <el-form-item label="真实姓名" label-width="140">
         <el-input v-model="data.register.realName" placeholder="真实姓名"></el-input>
       </el-form-item>
+      <el-form-item v-if="data.register.role === 2" label="所属组织" label-width="140">
+        <el-input v-model="data.register.org" placeholder="所属组织"></el-input>
+      </el-form-item>
       <el-form-item label="邮箱" label-width="140">
         <el-input v-model="data.register.email" placeholder="邮箱"></el-input>
       </el-form-item>
       <el-form-item label="验证码" label-width="140">
         <div class="verify-code">
           <el-input v-model="data.register.verifyCode" placeholder="验证码" style="width: 80%"></el-input>
-          <el-button type="primary" plain @click="sendVerifyCode" :disabled="!data.isSendCode">
+          <el-button type="primary" @click="sendCode" :disabled="!data.isSendCode">
             发送邮箱验证码{{ !data.isSendCode ? "(" + data.sendCountDown + ")" : "" }}
           </el-button>
         </div>
@@ -55,11 +64,11 @@
 </template>
 
 <script>
-import {reactive} from "vue";
+import {onMounted, reactive} from "vue";
 import {ElMessage} from "element-plus";
 import router from "@/router";
 import {useStore} from "vuex/dist/vuex.mjs";
-import {login} from "@/config/request/userRequest"
+import {login, sendVerifyCode, register} from "@/config/request/userRequest"
 import request from "@/utils/request"
 
 export default {
@@ -78,11 +87,14 @@ export default {
       isRegister: false,
       isSendCode: true,
       register: {
+        role: 1,
         username: "",
         password: "",
         confirmPassword: "",
         realName: "",
+        org: "",
         email: "",
+        uuid: "",
         verifyCode: "",
       },
 
@@ -103,58 +115,101 @@ export default {
           request.defaults.headers.common["user-token"] = resp.data.data.token
           // 提示
           ElMessage.success("登录成功")
-          router.replace({name: "root"})
+
+          // 跳转用户界面
+          if (resp.data.data.role === 1) {
+            // 管理员
+            router.replace({name: "admin"})
+          } else {
+            // 普通用户
+            router.replace({name: "root"})
+          }
         } else {
           ElMessage.error("用户名或密码错误")
+          loginInfo.password = ""
         }
       })
     }
 
     // 注册
-    function register() {
+    function openRegister() {
       data.isRegister = true
       data.register = {
+        role: 1,
         username: "",
         password: "",
         confirmPassword: "",
         realName: "",
         email: "",
+        uuid: "",
         verifyCode: "",
       }
     }
 
+    // 注册信息检查
+    function registerCheck() {
+      if (data.register.password !== data.register.confirmPassword) {
+        ElMessage.error("两次输入密码不一致")
+        return false
+      }
+      return true
+    }
+
     // 确认注册
     function confirmRegister() {
-
-      ElMessage.success("注册成功")
-      loginInfo.username = data.register.username
-      loginInfo.password = data.register.password
-      data.isRegister = false
+      if (registerCheck()) {
+        register(data.register).then((res) => {
+          if (res.data.code === 200) {
+            ElMessage.success("注册成功")
+            loginInfo.username = data.register.username
+            loginInfo.password = data.register.password
+            data.isRegister = false
+          } else {
+            ElMessage.error(res.data.msg)
+          }
+        })
+      }
     }
 
     // 发送验证码
-    function sendVerifyCode() {
-
-      ElMessage.info("验证码已发送")
-      data.isSendCode = false
-      data.timer = setInterval(() => {
-        data.sendCountDown --
-        if (data.sendCountDown === 0) {
-          // 停止计时
-          data.isSendCode = true
-          clearInterval(data.timer)
-          data.sendCountDown = 60
+    function sendCode() {
+      sendVerifyCode(data.register.email).then((res) => {
+        if (res.data.code === 200) {
+          // 将返回的uuid保存到注册信息中
+          data.register.uuid = res.data.data
+          data.isSendCode = false
+          // 开启定时器
+          data.timer = setInterval(() => {
+            data.sendCountDown--
+            if (data.sendCountDown === 0) {
+              // 停止计时
+              data.isSendCode = true
+              // 清除(关闭)定时器
+              clearInterval(data.timer)
+              data.sendCountDown = 60
+            }
+          }, 1000)
+          ElMessage.info("验证码已发送")
+        } else {
+          ElMessage.info("验证码发送失败，请重试")
         }
-      }, 1000)
+      })
     }
+
+    onMounted(() => {
+      const token = localStorage.getItem("user-token");
+      if (token !== null) {
+        router.replace("/")
+      }
+    })
 
     return {
       loginInfo,
       data,
 
       userLogin,
-      register,
-      sendVerifyCode,
+      openRegister,
+      sendCode,
       confirmRegister
     }
   }
@@ -169,6 +224,7 @@ export default {
   background-image: url("../assets/login-background.png");
   background-size: 100% 100%;
 }
+
 .login-panel {
   margin-top: 30%;
   margin-left: 50%;
@@ -179,6 +235,7 @@ export default {
   text-align: center;
   border-radius: 10px;
 }
+
 .login-title {
   padding-top: 5%;
   padding-bottom: 5%;

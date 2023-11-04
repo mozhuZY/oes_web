@@ -2,7 +2,7 @@
   <el-container class="container">
     <!-- 页头 -->
     <el-header class="header">
-      <OesHeader @changeCard="mainRouteJump" :username="user.realName" :active-page="activePage"></OesHeader>
+      <OesHeader @changeCard="mainRouteJump" :username="user.realName" :head-icon="user.picture" :active-page="activePage"></OesHeader>
     </el-header>
 
     <!-- 页体 -->
@@ -78,6 +78,12 @@ export default {
     provide("mainRouteJump", mainRouteJump)
     provide("activePage", activePage)
     provide("openNotice", openNotice)
+
+    onMounted(() => {
+      if (router.currentRoute.value.name !== 'home') {
+        activePage.value = router.currentRoute.value.name
+      }
+    })
 
     return {
       user,

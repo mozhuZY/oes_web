@@ -1,13 +1,13 @@
 <template>
   <el-card class="card" shadow="never" :body-style="{padding: 0}" @click="toExamDetail">
-    <el-image class="exam-image" :src="exam.picture" fit="fill">
+    <el-image class="exam-image" :src="'http://localhost:8080/picture/exam/' + exam.picture" fit="fill">
       <template #error>
         <div class="vertical-center"><span>无图片</span></div>
       </template>
     </el-image>
     <div class="exam-container">
       <span class="exam-title"><b>{{ exam.examName }}</b></span><br>
-      <span class="exam-info">发布者：{{ exam.creator }}</span><br>
+      <span class="exam-info">发布者：{{ exam.creatorName }}</span><br>
       <span class="exam-info">开始时间：{{ exam.startTime }}</span><br>
       <span class="exam-info">结束时间：{{ exam.endTime }}</span>
     </div>
@@ -23,7 +23,7 @@ export default {
   props: ["exam"],
   setup(props) {
     function toExamDetail() {
-      router.push({name: "examDetail", query: {examId: props.exam.examId, backRoute: 'examCenter',last: 'examCenter'}})
+      router.push({name: "examDetail", query: {examId: props.exam.id, backRoute: 'examCenter',last: 'examCenter'}})
     }
 
     return {

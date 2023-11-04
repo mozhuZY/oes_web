@@ -17,8 +17,8 @@
         </div>
       </div>
       <div class="operations">
-        <el-button type="primary" plain size="small" @click.stop="modifyPaper(paper)">修改</el-button>
-        <el-button type="danger" plain size="small" @click.stop="deletePaper(paper.id)">删除</el-button>
+        <el-button type="primary" plain size="small" :disabled="!paper.editable" @click.stop="modifyPaper(index)">修改</el-button>
+        <el-button type="danger" plain size="small"  :disabled="!paper.editable" @click.stop="deletePaper(paper.id)">删除</el-button>
       </div>
     </div>
   </el-card>
@@ -27,7 +27,7 @@
 <script>
 export default {
   name: "PaperItem",
-  props: ["paper", "modifyPaper" ,"deletePaper"],
+  props: ["index", "paper", "modifyPaper" ,"deletePaper"],
 }
 </script>
 

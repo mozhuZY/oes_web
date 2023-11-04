@@ -1,67 +1,41 @@
 <template>
   <!-- 数据表格 -->
   <el-table :data="dataList.data.list">
-    <!-- 用户ID -->
+    <!-- 试卷ID -->
     <el-table-column
         header-align="center"
         align="center"
-        label="用户ID"
-        prop="userId"
+        label="图片ID"
+        prop="id"
         width="100"
     >
     </el-table-column>
 
-    <!-- 用户姓名 -->
+    <!-- 学科 -->
     <el-table-column
         header-align="center"
         align="center"
-        label="用户姓名"
-        prop="realName"
-        width="150"
-    >
-    </el-table-column>
-
-    <!-- 用户性别 -->
-    <el-table-column
-        header-align="center"
-        align="center"
-        label="用户性别"
-        prop="sex"
-        width="150"
+        label="预览"
+        prop="path"
+        width="300"
     >
       <template #default="scope">
-        {{ scope.row.sex === 0 ? "女" : "男" }}
+        <el-image :src="'http://localhost:8080/picture/' + scope.row.path + scope.row.name" style="width: 150px"></el-image>
       </template>
     </el-table-column>
 
-    <!-- 用户年龄 -->
+    <!-- 功能栏 -->
     <el-table-column
         header-align="center"
         align="center"
-        label="用户年龄"
-        prop="age"
-        width="150"
-    >
-    </el-table-column>
-
-    <!-- 用户邮箱 -->
-    <el-table-column
-        header-align="center"
-        align="center"
-        label="用户邮箱"
-        prop="email"
-        width="250"
-    >
-    </el-table-column>
-    <el-table-column
-        header-align="center"
-        align="center"
+        height="80%"
+        fixed="right"
         label="操作"
         width="200"
     >
       <template #default="scope">
-        <el-button type="primary" @click="pass(scope.$index)">通过</el-button>
-        <el-button type="primary" @click="reject(scope.$index)">驳回</el-button>
+        <el-button type="primary" @click="pass(scope.row.id)">通过</el-button>
+        <el-button type="primary" @click="reject(scope.row.id)">驳回</el-button>
       </template>
     </el-table-column>
   </el-table>
@@ -84,26 +58,25 @@
 </template>
 
 <script>
-import {onMounted, reactive, ref} from "vue";
-import {ElMessage, ElMessageBox} from "element-plus";
-import {copyProperties} from "@/utils/objectUtil";
-import {getUserInfoPage, modifyUser} from "@/config/request/userRequest";
-import {modifyExam} from "@/config/request/examRequest";
+import {onMounted, reactive} from "vue";
+import {ElMessage} from "element-plus";
+import {getPicturePage, modifyPicture} from "@/config/request/pictureRequests";
 
 export default {
-  name: "UserProcess",
+  name: "PictureProcess",
   setup() {
     // 分页信息
     const pageInfo = reactive({
       pageNum: 1,
       pageSize: 10,
-      state: 0,
+      type: 0,
+      state: 0
     })
 
     // 分页大小
     const pageSizes = reactive([10, 20, 30, 50])
 
-    // 数据
+    // 数据列表
     const dataList = reactive({
       data: {
         list: []
@@ -112,16 +85,16 @@ export default {
 
     // 加载数据
     function loadData() {
-      getUserInfoPage(pageInfo).then((res) => {
-        if(res.data.code === 200) {
+      getPicturePage(pageInfo).then((res) => {
+        if (res.data.code === 200) {
           dataList.data = res.data.data
         } else {
-          ElMessage.error("用户信息加载失败，请重试")
+          ElMessage.error("图片信息加载失败，请重试")
         }
       })
     }
 
-    // 分页信息变化
+    // 切换分页
     function pageChange() {
       loadData()
     }
@@ -132,12 +105,12 @@ export default {
     }
 
     // 审核通过
-    function pass(index) {
+    function pass(id) {
       let dt = {
-        id: dataList.data.list[index].userId,
+        id: id,
         state: 1,
       }
-      modifyUser(dt).then((res) => {
+      modifyPicture(dt).then((res) => {
         if (res.data.code === 200) {
           ElMessage.success("审核成功")
           loadData()
@@ -148,12 +121,12 @@ export default {
     }
 
     // 审核驳回
-    function reject(index) {
+    function reject(id) {
       let dt = {
-        id: dataList.data.list[index].userId,
+        id: id,
         state: 2,
       }
-      modifyExam(dt).then((res) => {
+      modifyPicture(dt).then((res) => {
         if (res.data.code === 200) {
           ElMessage.success("驳回成功")
           loadData()
@@ -182,10 +155,41 @@ export default {
 </script>
 
 <style scoped>
+.search-area {
+  width: 100%;
+  display: flex;
+  justify-content: left;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.search {
+  width: 15%;
+  margin-right: 20px;
+}
+
+.search-btn {
+  width: 10%;
+}
+
 .pagination {
   width: 100%;
   margin-top: 30px;
   display: flex;
-  justify-content: center;
+  justify-content: left;
+}
+
+.upload-image, .image {
+  width: 178px;
+  height: 178px;
+  display: block;
+}
+
+.el-icon.upload-icon {
+  font-size: 28px;
+  color: #8c939d;
+  width: 178px;
+  height: 178px;
+  text-align: center;
 }
 </style>

@@ -12,11 +12,10 @@
         <div class="vertical-center">
           <span v-text="username" style="margin-right: 10px"></span>
           <el-avatar size="default"
-                     src="https://img.zcool.cn/community/01a3865ab91314a8012062e3c38ff6.png@1280w_1l_2o_100sh.png"></el-avatar>
+                     :src="'http://localhost:8080/picture/user/' + picture"></el-avatar>
         </div>
         <template #dropdown>
           <el-dropdown-menu>
-            <el-dropdown-item command="userInfo">个人信息</el-dropdown-item>
             <el-dropdown-item command="logout">退出登录</el-dropdown-item>
           </el-dropdown-menu>
         </template>
@@ -31,22 +30,18 @@
               background-color="#061746"
               text-color="lightgray"
               active-text-color="orange"
-              default-active="userManage"
+              default-active="userProcess"
               @select="selectMenu"
           >
-            <el-menu-item index="userManage">用户管理</el-menu-item>
-            <el-menu-item index="examManage">考试管理</el-menu-item>
-            <el-menu-item index="paperManage">试卷管理</el-menu-item>
-            <el-menu-item index="questionManage">试题管理</el-menu-item>
-            <el-sub-menu open="">
+            <el-sub-menu index="process">
               <template #title>审核管理</template>
-              <el-menu-item index="userProcess">用户审核</el-menu-item>
+              <el-menu-item index="userProcess">教师审核</el-menu-item>
               <el-menu-item index="examProcess">考试审核</el-menu-item>
               <el-menu-item index="questionProcess">试题审核</el-menu-item>
+              <el-menu-item index="pictureProcess">图片审核</el-menu-item>
             </el-sub-menu>
-            <el-sub-menu open="">
+            <el-sub-menu index="system">
               <template #title>系统管理</template>
-              <el-menu-item index="noticeManage">公告管理</el-menu-item>
               <el-menu-item index="bannerManage">轮播图管理</el-menu-item>
             </el-sub-menu>
           </el-menu>
@@ -62,12 +57,23 @@
 </template>
 
 <script>
-import {inject, onMounted} from "vue";
+import {computed, inject, onMounted} from "vue";
+import {logout} from "@/config/request/userRequest";
+import {ElMessage} from "element-plus";
 
 export default {
   name: "AdminFramework",
   setup() {
+    const store = inject("store")
     const router = inject("router")
+
+    const username = computed(() => {
+      return store.state.user.currentUser.username
+    })
+
+    const picture =  computed(() => {
+      return store.state.user.currentUser.picture
+    })
 
     // 选择菜单
     function selectMenu(index) {
@@ -78,22 +84,31 @@ export default {
     // 处理下拉菜单
     function handleCommand(command) {
       switch(command) {
-        case "userInfo":
-          break;
         case "logout":
-          router.replace("/login")
-          break;
+          logout().then(res => {
+            if (res.data.code === 200) {
+              // 清除前端用户登录信息
+              localStorage.removeItem(localStorage.getItem("user-token"))
+              localStorage.removeItem("user-token")
+              // 跳转登录页面
+              router.replace("/login")
+            } else {
+              ElMessage.error("退出登录失败")
+            }
+          })
+          break
       }
     }
 
-    // 页面初始化
     onMounted(() => {
-      router.replace({name: "userManage"})
+      router.replace({name: "userProcess"})
     })
 
     return {
-      selectMenu,
+      picture,
+      username,
 
+      selectMenu,
       handleCommand,
     }
   }

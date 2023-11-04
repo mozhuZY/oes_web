@@ -112,46 +112,6 @@ const routes = [
         },
         children: [
             {
-                name: "userManage",
-                path: "/userManage",
-                component: () => import("@/pages/admin/UserManage"),
-                meta: {
-                    title: "OES - 后台管理"
-                }
-            },
-            {
-                name: "examManage",
-                path: "/examManage",
-                component: () => import("@/pages/admin/ExamManage"),
-                meta: {
-                    title: "OES - 后台管理"
-                }
-            },
-            {
-                name: "paperManage",
-                path: "/paperManage",
-                component: () => import("@/pages/admin/PaperManage"),
-                meta: {
-                    title: "OES - 后台管理"
-                }
-            },
-            {
-                name: "questionManage",
-                path: "/questionManage",
-                component: () => import("@/pages/admin/QuestionManage"),
-                meta: {
-                    title: "OES - 后台管理"
-                }
-            },
-            {
-                name: "noticeManage",
-                path: "/noticeManage",
-                component: () => import("@/pages/admin/NoticeManage"),
-                meta: {
-                    title: "OES - 后台管理"
-                }
-            },
-            {
                 name: "userProcess",
                 path: "/userProcess",
                 component: () => import("@/pages/admin/UserProcess"),
@@ -171,6 +131,14 @@ const routes = [
                 name: "questionProcess",
                 path: "/questionProcess",
                 component: () => import("@/pages/admin/QuestionProcess"),
+                meta: {
+                    title: "OES - 后台管理"
+                }
+            },
+            {
+                name: "pictureProcess",
+                path: "/pictureProcess",
+                component: () => import("@/pages/admin/PictureProcess"),
                 meta: {
                     title: "OES - 后台管理"
                 }
@@ -196,8 +164,9 @@ const router = createRouter({
 // 全局前置守卫
 router.beforeEach((to, from, next) => {
     console.log("[router] ", from.name, " -> ", to.name)
+    // 同一个路由，取消跳转
     if (from.name !== undefined && to.name === from.name) {
-        console.log("同一个路由，取消跳转")
+        console.log("取消跳转")
         return
     }
     next()
@@ -205,9 +174,19 @@ router.beforeEach((to, from, next) => {
 
 //全局后置守卫
 router.afterEach((to, from) => {
+    console.log(to)
     // 改变页面标题
     if (to.meta.title !== undefined) {
         document.title = to.meta.title
+    }
+    // 进入其他页面需要进行登录验证
+    if (to.name !== "home" && to.name !== "root" && to.name !== "login") {
+        let token = localStorage.getItem("user-token")
+        if (token === undefined || token === null) {
+            setTimeout(() => {
+                router.replace("/login").then((r) => {})
+            })
+        }
     }
 });
 

@@ -1,10 +1,10 @@
 <template>
   <div class="function-area">
-    <el-button type="primary" @click="data.isCreate = true">新建试题</el-button>
+    <el-button type="primary" @click="createQuestion">新建试题</el-button>
   </div>
   <!-- 试题分页信息 -->
   <div>
-    <el-table :data="questionList" style="width: 100%">
+    <el-table :data="questionList.data.list" style="width: 100%">
       <el-table-column
           header-align="center"
           align="center"
@@ -24,7 +24,7 @@
       <el-table-column
           header-align="center"
           align="center"
-          prop="std_ans"
+          prop="stdAns"
           label="标准答案"
           width="100"
       >
@@ -50,7 +50,7 @@
         :page-sizes="pageSizeList"
         :background="true"
         layout="sizes, prev, pager, next"
-        :total="questionList.length"
+        :total="questionList.data.total"
         @size-change="handleSizeChange"
         @current-change="handleCurrentChange"
     />
@@ -66,11 +66,22 @@
       <el-form-item label="试题ID" label-width="140">
         <el-input v-model="data.modifyObject.id" disabled></el-input>
       </el-form-item>
-      <el-form-item label="学科" label-width="140">
-        <el-input v-model="data.modifyObject.subject"></el-input>
+      <el-form-item label="标签" label-width="140">
+        <el-tag
+            class="tag"
+            v-for="(tag, index) in data.modifyObject.tags"
+            :key="tag"
+            closable
+            round
+            size="large"
+            @close="data.modifyObject.tags.splice(index, 1)">
+          {{ tag }}
+        </el-tag>
+        <el-input class="tag-input" autofocus v-if="data.isAddTag" v-model="data.newTag" placeholder="新标签" @blur="addTag(data.modifyObject)"></el-input>
+        <el-button style="margin-left: 5px" v-if="!data.isAddTag" round @click="addNewTag('modify')">+ 添加标签</el-button>
       </el-form-item>
       <el-form-item label="标准答案" label-width="140">
-        <el-input v-model="data.modifyObject.std_ans"></el-input>
+        <el-input v-model="data.modifyObject.stdAns"></el-input>
       </el-form-item>
       <el-form-item label="选项" label-width="140">
         <el-input v-model="data.modifyObject.opts[0]" placeholder="选项A" style="margin-bottom: 10px"></el-input>
@@ -93,13 +104,24 @@
   >
     <el-form :model="data.newObject">
       <el-form-item label="试题描述" label-width="140">
-        <el-input type="textarea" v-model="data.newObject.id" rows="3"></el-input>
+        <el-input type="textarea" v-model="data.newObject.description" rows="3"></el-input>
       </el-form-item>
-      <el-form-item label="学科" label-width="140">
-        <el-input v-model="data.newObject.subject"></el-input>
+      <el-form-item label="标签" label-width="140">
+        <el-tag
+            class="tag"
+            v-for="(tag, index) in data.newObject.tags"
+            :key="tag"
+            closable
+            round
+            size="large"
+            @close="data.newObject.tags.splice(index, 1)">
+          {{ tag }}
+        </el-tag>
+        <el-input class="tag-input" autofocus v-if="data.isAddTag" v-model="data.newTag" placeholder="新标签" @blur="addTag(data.newObject)"></el-input>
+        <el-button style="margin-left: 5px" v-if="!data.isAddTag" round @click="addNewTag('new')">+ 添加标签</el-button>
       </el-form-item>
       <el-form-item label="标准答案" label-width="140">
-        <el-input v-model="data.newObject.std_ans"></el-input>
+        <el-input v-model="data.newObject.stdAns"></el-input>
       </el-form-item>
       <el-form-item label="选项" label-width="140">
         <el-input v-model="data.newObject.opts[0]" placeholder="选项A" style="margin-bottom: 10px"></el-input>
@@ -116,56 +138,39 @@
 </template>
 
 <script>
-import {inject, reactive} from "vue";
-import PaperItem from "@/components/PaperItem";
+import {inject, onMounted, reactive} from "vue";
 import {ElMessageBox, ElMessage} from "element-plus";
+import {
+  addChoiceQuestion,
+  getCurrentUserQuestionPage,
+  modifyChoiceQuestion,
+  removeChoiceQuestion
+} from "@/config/request/questionRequests";
 
 export default {
   name: "MyQuestion",
   setup() {
-    const store = inject("store")
-    const router = inject("router")
     const mainRouteJump =  inject("mainRouteJump")
 
     const data = reactive({
       isModify: false,
       isCreate: false,
-      modifyObject: {
-        id: null,
-        description: "",
-        std_ans: "",
-        subject: "",
-        opts: null,
-      },
+      isAddTag: false,
+      newTag: "",
+      modifyObject: null,
       newObject: {
         description: "",
-        std_ans: "",
-        subject: "",
+        stdAns: "",
+        tags: [],
         opts: ["", "", "", ""]
       }
     })
 
-    const questionList = reactive([
-      {
-        id: 1,
-        description: "1+1=？",
-        std_ans: "C",
-        subject: "英语",
-        opts: ["1", "3", "11", "10"],
-      },
-      {
-        id: 2,
-        description: "1+3=？",
-        std_ans: "A",
-        subject: "英语"
-      },
-      {
-        id: 3,
-        description: "2x2=？",
-        std_ans: "D",
-        subject: "英语"
+    const questionList = reactive({
+      data: {
+        list: []
       }
-    ])
+    })
 
     // 分页信息
     const pageInfo = reactive({
@@ -175,41 +180,71 @@ export default {
 
     const pageSizeList = reactive([10, 20, 30, 50])
 
-    // 转到试卷编辑页面
+    // 获取当前用户的选择题信息
+    function getListData() {
+      getCurrentUserQuestionPage(pageInfo).then((res) => {
+        if (res.data.code === 200) {
+          questionList.data = res.data.data
+        }
+      })
+    }
 
+    // 转到试卷编辑页面
     function toPaper(index) {
-      console.log("转到试卷详细信息：" + questionList[index])
       mainRouteJump("paperEdit")
     }
 
     // 处理分页大小变化
-    function handleSizeChange(size) {
-      console.log(size)
+    function handleSizeChange() {
+      getListData()
     }
 
     // 处理切换分页
-    function handleCurrentChange(page) {
-      console.log(page)
+    function handleCurrentChange() {
+      getListData()
+    }
+
+    function createQuestion() {
+      data.newObject = {
+        description: "",
+        stdAns: "",
+        tags: [],
+        opts: ["", "", "", ""]
+      }
+      data.isCreate = true
     }
 
     // 创建试题
     function confirmCreate() {
-      data.isCreate = false
-      ElMessage.success("创建成功")
+      addChoiceQuestion(data.newObject).then((res) => {
+        if (res.data.code === 200) {
+          data.isCreate = false
+          ElMessage.success("创建成功，等待管理员审核")
+          // 重新请求数据
+          getListData()
+        } else {
+          ElMessage.error("创建失败，请重试")
+        }
+      })
     }
 
     // 修改试题
     function modifyQuestion(index) {
-      Object.assign(data.modifyObject, questionList[index])
+      data.modifyObject = JSON.parse(JSON.stringify(questionList.data.list[index]))
       data.isModify = true
     }
 
     function confirmModify() {
       // 修改试题请求
-
-      data.isModify = false
-      ElMessage.success("修改成功")
-
+      modifyChoiceQuestion(data.modifyObject).then((res) => {
+        if (res.data.code === 200) {
+          data.isModify = false
+          ElMessage.success("修改成功")
+          getListData()
+        } else {
+          ElMessage.error("修改失败，请重试")
+        }
+      })
     }
 
     // 删除试题
@@ -217,14 +252,44 @@ export default {
       ElMessageBox.alert("确定要删除此试题吗？", "提示", {
         confirmButtonText: "确定",
         confirmButtonClass: "color: red",
+        cancelButtonText: "取消",
         callback: (msg) => {
           if (msg === "confirm") {
             // 删除试卷请求
-            ElMessage.success("删除成功")
+            const dt = {
+              ids: [questionId]
+            }
+            removeChoiceQuestion(dt).then((res) => {
+              if (res.data.code === 200) {
+                ElMessage.success("删除成功")
+                getListData()
+              } else {
+                ElMessage.error("删除失败，请重试")
+              }
+            })
           }
         }
       })
     }
+
+    // 处理添加标签
+    function addTag(obj) {
+      if (data.newTag !== "") {
+        console.log(obj)
+        obj.tags.push(data.newTag)
+      }
+      data.isAddTag = false
+    }
+
+    // 开启新标签编辑
+    function addNewTag() {
+      data.newTag = ""
+      data.isAddTag = true
+    }
+
+    onMounted(() => {
+      getListData()
+    })
 
     return {
       questionList,
@@ -238,7 +303,10 @@ export default {
       modifyQuestion,
       confirmModify,
       deleteQuestion,
+      createQuestion,
       confirmCreate,
+      addTag,
+      addNewTag,
     }
   }
 }
@@ -259,5 +327,14 @@ export default {
   margin: 40px 0 40px 0;
   display: flex;
   justify-content: center;
+}
+
+.tag {
+  margin-left: 5px;
+}
+
+.tag-input {
+  width: 100px;
+  margin-left: 5px;
 }
 </style>

@@ -29,7 +29,7 @@
           <span v-text="username" style="margin-right: 10px" v-if="username !== null"></span>
           <span style="margin-right: 10px" v-if="username === null" @click="toLogin">立即登录</span>
           <el-avatar size="default"
-                     src="https://img.zcool.cn/community/01a3865ab91314a8012062e3c38ff6.png@1280w_1l_2o_100sh.png"></el-avatar>
+                     :src="'http://localhost:8080/picture/user/' + headIcon"></el-avatar>
         </div>
         <template #dropdown v-if="username !== null">
           <el-dropdown-menu>
@@ -50,7 +50,7 @@ import {ElMessage} from "element-plus";
 
 export default {
   name: "OesHeader",
-  props: ["username", "activePage"],
+  props: ["username", "activePage", "headIcon"],
   emits: ["changeCard"],
   setup(props, context) {
     const router = useRouter()

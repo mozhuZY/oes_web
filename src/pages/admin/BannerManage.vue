@@ -1,6 +1,9 @@
 <template>
+  <div>
+    <el-button type="primary" @click="openAddPicture">新增轮播图</el-button>
+  </div>
   <!-- 数据表格 -->
-  <el-table :data="dataList">
+  <el-table :data="dataList.data.list">
     <!-- 试卷ID -->
     <el-table-column
         header-align="center"
@@ -11,7 +14,7 @@
     >
     </el-table-column>
 
-    <!-- 学科 -->
+    <!-- 图片预览 -->
     <el-table-column
         header-align="center"
         align="center"
@@ -20,7 +23,7 @@
         width="300"
     >
       <template #default="scope">
-        <el-image :src="scope.row.path" style="width: 150px"></el-image>
+        <el-image :src="'http://localhost:8080/picture/banner/' + scope.row.name" style="width: 150px"></el-image>
       </template>
     </el-table-column>
 
@@ -34,7 +37,6 @@
         width="200"
     >
       <template #default="scope">
-        <el-button type="primary" @click="modifyItem(scope.row, scope.$index)">修改</el-button>
         <el-button type="primary" @click="deleteItem(scope.row.id)">删除</el-button>
       </template>
     </el-table-column>
@@ -49,76 +51,67 @@
         :page-sizes="pageSizes"
         :default-current-page="1"
         :default-page-size="10"
-        :total="dataList.length"
+        :total="dataList.data.total"
         @current-change="pageChange"
         @size-change="pageSizeChange"
     >
     </el-pagination>
   </div>
 
-  <!-- 修改试卷信息对话框 -->
+  <!-- 新增轮播图信息对话框 -->
   <el-dialog
-      title="修改试卷信息"
-      width="50%"
-      v-model="isEdit"
+      title="新增轮播图信息"
+      width="40%"
+      v-model="isAdd"
   >
-    <el-form :model="modifyObject">
-      <el-form-item label="图片ID" label-width="140px">
-        <el-input v-model="modifyObject.id" disabled></el-input>
-      </el-form-item>
-
-      <el-form-item label="图片ID" label-width="140px">
-        <el-upload
-            class="upload-image"
-            :show-file-list="false"
-            :on-success="handleSuccess"
-            :before-upload="handleBeforeUpload"
-        >
-          <img class="image" :src="modifyObject.path" v-if="modifyObject.path !== null" alt="上传失败"/>
-          <el-icon v-else class="upload-icon">
-            <Plus/>
-          </el-icon>
-        </el-upload>
-      </el-form-item>
-    </el-form>
+    <el-upload
+        class="upload-image"
+        ref="upload"
+        action="http://localhost:8080/api/file/picture/banner/upload"
+        v-model:file-list="fileList"
+        :headers="headers"
+        :limit="1"
+        :on-success="handleSuccess"
+        :before-upload="handleBeforeUpload"
+        :auto-upload="false"
+    >
+      <template #trigger>
+        <el-button type="primary">选择文件</el-button>
+      </template>
+    </el-upload>
 
     <!-- 对话框按钮 -->
     <template #footer>
-      <el-button type="primary" @click="confirmModify">确认</el-button>
-      <el-button type="primary" plain @click="isEdit = false">取消</el-button>
+      <el-button type="primary" @click="confirmAdd">确认</el-button>
+      <el-button type="primary" plain @click="isAdd = false">取消</el-button>
     </template>
   </el-dialog>
 </template>
 
 <script>
-import {reactive, ref} from "vue";
+import {onMounted, reactive, ref} from "vue";
 import {ElMessage, ElMessageBox} from "element-plus";
-import {copyProperties} from "@/utils/objectUtil";
+import {getPicturePage, removePicture} from "@/config/request/pictureRequests";
 
 export default {
   name: "BannerManage",
   setup() {
-    // 是否编辑
-    const isEdit = ref(false)
+    // 是否新增
+    const isAdd = ref(false)
 
-    // 待修改对象索引
-    let modifyIndex = 0
+    const upload = ref(null)
 
-    // 待修改对象
-    const modifyObject = reactive({
-      id: null,
-      path: ""
-    })
+    const fileList = ref([])
 
-    // 搜索条件
-    const searchCondition = reactive({
-      id: null,
+    const headers = reactive({
+      "user-token": localStorage.getItem("user-token")
     })
 
     // 分页信息
     const pageInfo = reactive({
       pageNum: 1,
       pageSize: 10,
+      type: 1
     })
 
     // 分页大小
@@ -128,68 +121,76 @@ export default {
     const stateList = reactive(["待审核", "已发布"])
 
     // 数据列表
-    const dataList = reactive([
-      {
-        id: 1,
-        path: "https://gss0.baidu.com/-4o3dSag_xI4khGko9WTAnF6hhy/zhidao/pic/item/279759ee3d6d55fb3e99e1ea6a224f4a21a4dd9b.jpg"
-      },
-    ])
+    const dataList = reactive({
+      data: {
+        list: []
+      }
+    })
 
-    // 修改用户信息
-    function modifyItem(item, index) {
-      // 先将需要修改的用户数据复制到待修改用户对象
-      copyProperties(modifyObject, item)
-      modifyIndex = index
-      isEdit.value = true
-    }
-
-    // 确认修改用户信息
-    function confirmModify() {
-      copyProperties(dataList[modifyIndex], modifyObject, false)
-      isEdit.value = false
-      ElMessage.success("修改成功")
-    }
-
-    // 删除用户信息
-    function deleteItem(index, id) {
-      console.log(index, id)
-      ElMessageBox.alert("确定删除此用户？", "提示", {
-        confirmButtonText: "确定",
-        confirmButtonClass: "color: red",
-        cancelButtonText: "取消",
-        callback: () => {
-          // 删除用户信息
-
-          // 重新请求服务器
-          ElMessage.success("删除成功")
+    // 加载
+    function loadData() {
+      getPicturePage(pageInfo).then((res) => {
+        if (res.data.code === 200) {
+          dataList.data = res.data.data
+        } else {
+          ElMessage.error("图片信息加载失败")
         }
       })
     }
 
-    // 条件查询
-    function search() {
-      console.log(searchCondition)
+    // 打开新增轮播图对话框
+    function openAddPicture() {
+      isAdd.value = true
+      if (fileList.value.length > 0) {
+        fileList.value.splice(0, 1)
+      }
+    }
+
+    // 确认新增轮播图
+    function confirmAdd() {
+      if (fileList.value.length > 0) {
+        upload.value.submit()
+      }
+    }
+
+    // 删除轮播图
+    function deleteItem(id) {
+      ElMessageBox.alert("确定删除此图片？", "提示", {
+        confirmButtonText: "确定",
+        confirmButtonClass: "color: red",
+        cancelButtonText: "取消",
+        callback: (value) => {
+          if (value === "confirm") {
+            removePicture({ids: [id]}).then((res) => {
+              if (res.data.code === 200) {
+                ElMessage.success("删除成功")
+                loadData()
+              } else {
+                ElMessage.error("删除失败，请重试")
+              }
+            })
+          }
+        }
+      })
     }
 
     // 切换分页
-    function pageChange(page) {
-      console.log("切换到分页：", page)
-      pageInfo.pageNum = page
+    function pageChange() {
+      loadData()
     }
 
     // 分页大小切换
-    function pageSizeChange(size) {
-      pageInfo.pageSize = size
-      // 重新请求服务器
-      console.log("分页大小切换：", size)
+    function pageSizeChange() {
+      loadData()
     }
 
-    function handleSuccess(response, uploadFile) {
+    function handleSuccess(response) {
       if (response.data.code === 200) {
-        modifyObject.path = URL.createObjectURL(uploadFile.raw)
-        ElMessage.error("图片上传成功")
+        ElMessage.success("轮播图上传成功")
+        isAdd.value = false
+        loadData()
       } else {
-        ElMessage.error("图片上传失败，请重试")
+        ElMessage.error("轮播图上传失败，请重试")
       }
     }
 
@@ -199,26 +200,30 @@ export default {
       if (rawFile.type !== 'image/jpeg' && rawFile.type !== 'image/png') {
         ElMessage.error('图片格式只能为.jpg .jpeg .png')
         return false
-      } else if (rawFile.size / 1024 / 1024 > 2) {
-        ElMessage.error('图片大小不能超过2MB')
+      } else if (rawFile.size / 1024 / 1024 > 20) {
+        ElMessage.error('图片大小不能超过20MB')
         return false
       }
       return true
     }
 
+    onMounted(() => {
+      loadData()
+    })
+
     return {
-      isEdit,
+      upload,
+      isAdd,
       dataList,
       stateList,
-      modifyObject,
-      searchCondition,
       pageInfo,
       pageSizes,
+      headers,
+      fileList,
 
-      modifyItem,
+      openAddPicture,
       deleteItem,
-      confirmModify,
-      search,
+      confirmAdd,
       pageChange,
       pageSizeChange,
       handleSuccess,
@@ -254,7 +259,7 @@ export default {
 }
 
 .upload-image, .image {
-  width: 178px;
+  width: 100%;
   height: 178px;
   display: block;
 }
